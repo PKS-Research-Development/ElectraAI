@@ -1,0 +1,15 @@
+# Environment variables - never push to GitHub
+.env
+
+# Virtual environment
+venv/
+
+# ChromaDB database
+database/chroma_db/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Mac system files
+.DS_Store
