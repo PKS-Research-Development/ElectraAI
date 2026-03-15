@@ -4,6 +4,7 @@ langchain-ollama
 langchain-groq
 langchain-core
 langchain-text-splitters
+langchain-huggingface
 chromadb
 beautifulsoup4
 requests
