@@ -1,13 +1,14 @@
 # ============================================================
 # ElectraAI — Chatbot UI
-# Supports both Local (Ollama) and Cloud (Groq) modes
+# LLM: Groq (cloud) or Ollama (local)
+# Embeddings: HuggingFace Endpoint API (works everywhere)
 # ============================================================
 
 import os
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_groq import ChatGroq
 from langchain_ollama import OllamaLLM
 
@@ -17,27 +18,34 @@ load_dotenv()
 # ── Configuration ────────────────────────────────────────────
 CHROMA_DIR   = os.path.join(os.path.dirname(__file__),
                "../database/chroma_db")
-EMBED_MODEL  = "nomic-embed-text"
+EMBED_MODEL  = "sentence-transformers/all-MiniLM-L6-v2"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+HF_TOKEN     = os.getenv("HF_TOKEN")
 
-# ── Detect Mode: Local or Cloud ──────────────────────────────
+# ── Detect Environment ───────────────────────────────────────
+IS_CLOUD = os.path.exists("/mount/src")
+
+# ── Get Embeddings ───────────────────────────────────────────
+def get_embeddings():
+    return HuggingFaceEndpointEmbeddings(
+    model=f"https://router.huggingface.co/hf-inference/models/{EMBED_MODEL}/pipeline/feature-extraction",
+    huggingfacehub_api_token=HF_TOKEN
+    )
+
+# ── Get LLM ──────────────────────────────────────────────────
 def get_llm():
     if GROQ_API_KEY:
-        # Cloud mode — use Groq
-        print("🌐 Using Groq Cloud LLM")
         return ChatGroq(
             api_key=GROQ_API_KEY,
             model_name="llama-3.3-70b-versatile"
         )
     else:
-        # Local mode — use Ollama
-        print("💻 Using Ollama Local LLM")
         return OllamaLLM(model="mistral")
 
 # ── Load Vector Database ─────────────────────────────────────
 @st.cache_resource
 def load_vectorstore():
-    embeddings  = OllamaEmbeddings(model=EMBED_MODEL)
+    embeddings  = get_embeddings()
     vectorstore = Chroma(
         persist_directory=CHROMA_DIR,
         embedding_function=embeddings
@@ -61,10 +69,10 @@ st.title("⚡ ElectraAI")
 st.caption("Smart AI-powered search engine for your content")
 
 # ── Mode Indicator ────────────────────────────────────────────
-if GROQ_API_KEY:
-    st.success("🌐 Running in Cloud Mode (Groq)")
+if IS_CLOUD:
+    st.success("🌐 Running in Cloud Mode (Groq + HuggingFace)")
 else:
-    st.info("💻 Running in Local Mode (Ollama)")
+    st.info("💻 Running in Local Mode (Ollama + HuggingFace API)")
 
 st.divider()
 
@@ -123,15 +131,13 @@ Answer:"""
     with st.chat_message("assistant"):
         with st.spinner("⚡ Thinking..."):
             if GROQ_API_KEY:
-                # Groq returns message object
                 response = llm.invoke(full_prompt)
                 answer   = response.content
             else:
-                # Ollama returns string directly
                 answer = llm.invoke(full_prompt)
             st.write(answer)
 
-    # Save response to chat history
+    # Save to chat history
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer
@@ -139,5 +145,5 @@ Answer:"""
 
 # ── Footer ────────────────────────────────────────────────────
 st.divider()
-mode = "Groq Cloud" if GROQ_API_KEY else "Ollama Local"
+mode = "Groq + HuggingFace Cloud" if IS_CLOUD else "Ollama + HuggingFace Local"
 st.caption(f"⚡ Powered by {mode} + ChromaDB + LangChain")

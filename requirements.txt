@@ -11,3 +11,4 @@ streamlit
 pypdf
 python-dotenv
 groq
+huggingface-hub

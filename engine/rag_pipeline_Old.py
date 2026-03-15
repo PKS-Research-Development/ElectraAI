@@ -1,28 +1,26 @@
 # ============================================================
 # ElectraAI — RAG Pipeline
-# Uses HuggingFace Endpoint API for embeddings
+# Loads scraped data, chunks it, creates embeddings,
+# and stores everything in ChromaDB vector database
 # ============================================================
 
 import json
 import os
-from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+#from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 
-# Load environment variables
-load_dotenv()
-
 # ── Configuration ────────────────────────────────────────────
-DATA_FILE     = os.path.join(os.path.dirname(__file__),
-                "../data/raw/website_data.json")
-CHROMA_DIR    = os.path.join(os.path.dirname(__file__),
-                "../database/chroma_db")
-EMBED_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
-CHUNK_SIZE    = 500
+DATA_FILE   = os.path.join(os.path.dirname(__file__),
+              "../data/raw/website_data.json")
+CHROMA_DIR  = os.path.join(os.path.dirname(__file__),
+              "../database/chroma_db")
+#EMBED_MODEL = "nomic-embed-text"
+EMBED_MODEL = "all-MiniLM-L6-v2"
+CHUNK_SIZE  = 500
 CHUNK_OVERLAP = 50
-HF_TOKEN      = os.getenv("HF_TOKEN")
 
 # ── Step 1: Load Scraped Data ────────────────────────────────
 def load_data(filepath):
@@ -59,14 +57,13 @@ def chunk_documents(documents):
 
 # ── Step 4: Create Embeddings & Store in ChromaDB ───────────
 def create_vector_store(chunks):
-    print(f"🧠 Creating embeddings using HuggingFace API...")
-    print(f"   Model: {EMBED_MODEL}")
+    print(f"🧠 Creating embeddings using: {EMBED_MODEL}")
     print(f"   This may take a few minutes...\n")
-
-    embeddings = HuggingFaceEndpointEmbeddings(
-    model=f"https://router.huggingface.co/hf-inference/models/{EMBED_MODEL}/pipeline/feature-extraction",
-    huggingfacehub_api_token=HF_TOKEN
-    )
+    
+    #embeddings = OllamaEmbeddings(model=EMBED_MODEL)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+    
+    # Store in ChromaDB
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -82,11 +79,13 @@ if __name__ == "__main__":
     print("⚡ ElectraAI — RAG Pipeline Starting...")
     print("=" * 50 + "\n")
 
+    # Ensure database directory exists
     os.makedirs(CHROMA_DIR, exist_ok=True)
 
-    data        = load_data(DATA_FILE)
-    documents   = prepare_documents(data)
-    chunks      = chunk_documents(documents)
+    # Run pipeline
+    data       = load_data(DATA_FILE)
+    documents  = prepare_documents(data)
+    chunks     = chunk_documents(documents)
     vectorstore = create_vector_store(chunks)
 
     print("=" * 50)
