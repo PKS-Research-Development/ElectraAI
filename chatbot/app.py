@@ -110,9 +110,11 @@ if prompt := st.chat_input("Ask ElectraAI anything..."):
     # Retrieve relevant chunks from ChromaDB
     docs    = retriever.invoke(prompt)
     context = "\n\n".join([
-        f"Source {i+1}: {doc.page_content}"
-        for i, doc in enumerate(docs)
-    ])
+    f"Source {i+1} "
+    f"[{'PDF: ' + doc.metadata.get('source','') if doc.metadata.get('type') == 'pdf' else 'Website: ' + doc.metadata.get('url','')}]: "
+    f"{doc.page_content}"
+    for i, doc in enumerate(docs)
+])
 
     # Build prompt for LLM
     full_prompt = f"""You are ElectraAI, a smart and helpful assistant.
